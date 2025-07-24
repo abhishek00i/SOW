@@ -79,6 +79,9 @@ If no specific text is relevant (e.g., a missing section), 'relevantText' should
 
 Please provide the output as a JSON array of objects, strictly following the schema. For each check in the input, produce exactly one corresponding issue object in the output array.
 `,
+  config: {
+    temperature: 0,
+  },
 });
 
 const analyzeSowDocumentFlow = ai.defineFlow(

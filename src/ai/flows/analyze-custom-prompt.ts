@@ -9,6 +9,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { TemplateContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 
 const AnalyzeCustomPromptInputSchema = z.object({
   sowDocument: z.string().describe('The full text content of the Statement of Work document.'),
@@ -52,6 +53,9 @@ const prompt = ai.definePrompt({
 5.  Write a clear, concise description explaining your finding.
 
 Please provide the output as a single JSON object, strictly following the output schema.`,
+  config: {
+    temperature: 0,
+  },
 });
 
 const analyzeCustomPromptFlow = ai.defineFlow(

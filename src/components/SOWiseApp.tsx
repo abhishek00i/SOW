@@ -194,6 +194,7 @@ export function SOWiseApp() {
         sowDocument: docText,
         checks: sowChecks, // Pass the dynamic checks
        });
+       // analyzeSowDocument is calling the model here
       
       if (results && results.length > 0) {
         setIssues(results);
@@ -264,6 +265,7 @@ export function SOWiseApp() {
         sowDocument: docText,
         customPrompt: prompt,
       });
+      // analyzeCustomPrompt is calling the model here
 
       const newIssue: Issue = {
         id: `custom-${Date.now()}`,

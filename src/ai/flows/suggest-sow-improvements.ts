@@ -54,7 +54,11 @@ Relevant Text:
 
 Suggested Improvements:
 `, // Ensure the output is an array of strings
+  config: {
+    temperature: 0.5,
+  },
 });
+
 
 const suggestSowImprovementsFlow = ai.defineFlow(
   {
