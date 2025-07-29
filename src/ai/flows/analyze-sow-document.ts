@@ -9,6 +9,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import axios from 'axios';
 
 const SowCheckSchema = z.object({
   id: z.string().describe('A unique identifier for the check (e.g., "check1", "check2").'),
@@ -29,6 +30,7 @@ const IssueSchema = z.object({
 
 const AnalyzeSowDocumentInputSchema = z.object({
   sowDocument: z.string().describe('The full text content of the Statement of Work document.'),
+  filename: z.string().describe('The name of the uploaded file.'),
   checks: z.array(SowCheckSchema).describe('An array of checks to perform on the document.'),
 });
 export type AnalyzeSowDocumentInput = z.infer<typeof AnalyzeSowDocumentInputSchema>;
@@ -92,6 +94,35 @@ const analyzeSowDocumentFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await prompt(input);
+    // console.log(output);
+
+    // Construct the payload
+    const failedCount = output!.filter(issue => issue.status === 'failed').length;
+    const totalChecks = input.checks.length;
+    const compliance = (totalChecks - failedCount) / totalChecks * 100;
+
+    const payload = {
+      fileName: input.filename,
+      date: new Date().toISOString(),
+      compliance: compliance,
+      failedCount: failedCount,
+      totalChecks: totalChecks,
+      issues: output
+    };
+    console.log(payload);
+    // Send the payload to the API
+
+    try {
+      const response = await axios.post('http://10.134.65.5/api/analysis', payload, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      // console.log("API Response:", response.data); // Handle the response as needed
+    } catch (error) {
+      console.error("API Error:", error);
+    }
+
     return output!;
   }
 );

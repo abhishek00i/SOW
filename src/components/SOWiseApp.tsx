@@ -192,6 +192,7 @@ export function SOWiseApp() {
     try {
       const results = await analyzeSowDocument({ 
         sowDocument: docText,
+        filename: fileName,
         checks: sowChecks, // Pass the dynamic checks
        });
        // analyzeSowDocument is calling the model here
