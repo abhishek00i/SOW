@@ -8,10 +8,12 @@ import {
   AlertTriangle,
   FileText,
   Plus,
-  TrendingUp,
+  LayoutDashboard,
   CheckCircle2,
   XCircle,
   ListChecks,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
@@ -27,161 +29,126 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { RcaAnalysis } from '@/components/RcaAnalysis';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-  } from '@/components/ui/select';
-import { getYear, getQuarter, getMonth, getWeek, startOfWeek, endOfWeek, format, isWithinInterval } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { getYear, getQuarter, getMonth } from 'date-fns';
 import { TrendAnalysis } from '@/components/TrendAnalysis';
 
-export default function DashboardPage() {
+
+// --- IMPORTANT ---
+// Replace 'http://YOUR_LOAD_BALANCER_IP' with the actual public IP address of your Google Cloud Load Balancer.
+// Use 'http://' and not 'https://' unless you have configured an SSL certificate on your Load Balancer.
+const API_BASE_URL = 'http://10.134.65.5';
+
+
+export default function Dashboard() {
   const [stats, setStats] = useState({
     totalDocuments: 0,
     avgCompliance: 0,
     avgIssues: 0,
     totalIssues: 0,
   });
-  const [fullHistory, setFullHistory] = useState<AnalysisResult[]>([]);
-  const [filteredHistory, setFilteredHistory] = useState<AnalysisResult[]>([]);
+  const [history, setHistory] = useState<AnalysisResult[]>([]);
+  const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalDocuments: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAnalysis, setSelectedAnalysis] = useState<AnalysisResult | null>(null);
 
-  const [selectedYear, setSelectedYear] = useState<string>('all');
+  // Filter and Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
   const [selectedQuarter, setSelectedQuarter] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [selectedWeek, setSelectedWeek] = useState<string>('all');
 
-  const filterOptions = useMemo(() => {
-    const years = [...new Set(fullHistory.map(item => getYear(new Date(item.date))))].sort((a,b) => b-a);
-    
-    let yearToFilter = selectedYear !== 'all' ? parseInt(selectedYear, 10) : new Date().getFullYear();
-
-    const dataInYear = fullHistory.filter(item => getYear(new Date(item.date)) === yearToFilter);
-    
-    const quarters = [...new Set(dataInYear.map(item => getQuarter(new Date(item.date))))].sort((a,b) => a-b);
-    
-    let quarterToFilter = selectedQuarter !== 'all' ? parseInt(selectedQuarter, 10) : null;
-    let dataInQuarter = dataInYear;
-    if (quarterToFilter) {
-      dataInQuarter = dataInYear.filter(item => getQuarter(new Date(item.date)) === quarterToFilter);
-    }
-    const months = [...new Set(dataInQuarter.map(item => getMonth(new Date(item.date))))].sort((a,b) => a-b);
-
-    let monthToFilter = selectedMonth !== 'all' ? parseInt(selectedMonth, 10) : null;
-    let dataInMonth = dataInQuarter;
-    if (monthToFilter !== null) {
-        dataInMonth = dataInQuarter.filter(item => getMonth(new Date(item.date)) === monthToFilter);
-    }
-    const weeks = [...new Set(dataInMonth.map(item => getWeek(new Date(item.date), {weekStartsOn: 1})))].sort((a,b) => b-a);
-
-    return { years, quarters, months, weeks };
-  }, [fullHistory, selectedYear, selectedQuarter, selectedMonth]);
-
   useEffect(() => {
-    // Client-side only
-    const storedHistory = localStorage.getItem('sowise_analysis_history');
-    if (storedHistory) {
-      const parsedHistory: AnalysisResult[] = JSON.parse(storedHistory);
-      setFullHistory(parsedHistory);
-      setFilteredHistory(parsedHistory);
-    }
-    setIsLoading(false);
-  }, []);
-  
-  useEffect(() => {
-    let newFilteredHistory = fullHistory;
+    const fetchData = async () => {
+      setIsLoading(true);
+      
+      const params = new URLSearchParams();
+      if (selectedYear !== 'all') params.append('year', selectedYear);
+      if (selectedQuarter !== 'all') params.append('quarter', selectedQuarter);
+      if (selectedMonth !== 'all') params.append('month', selectedMonth);
+      if (selectedWeek !== 'all') params.append('week', selectedWeek);
+      // Add the current page to the request
+      params.append('page', String(currentPage));
 
-    if (selectedYear !== 'all') {
-      const yearNum = parseInt(selectedYear, 10);
-      newFilteredHistory = newFilteredHistory.filter(item => getYear(new Date(item.date)) === yearNum);
-    }
-    if (selectedQuarter !== 'all') {
-      const quarterNum = parseInt(selectedQuarter, 10);
-      newFilteredHistory = newFilteredHistory.filter(item => getQuarter(new Date(item.date)) === quarterNum);
-    }
-    if (selectedMonth !== 'all') {
-      const monthNum = parseInt(selectedMonth, 10);
-      newFilteredHistory = newFilteredHistory.filter(item => getMonth(new Date(item.date)) === monthNum);
-    }
-    if (selectedWeek !== 'all') {
-      const weekNum = parseInt(selectedWeek, 10);
-      newFilteredHistory = newFilteredHistory.filter(item => getWeek(new Date(item.date), { weekStartsOn: 1 }) === weekNum);
-    }
-    
-    setFilteredHistory(newFilteredHistory);
-  }, [selectedYear, selectedQuarter, selectedMonth, selectedWeek, fullHistory]);
+      const statsUrl = `${API_BASE_URL}/api/stats?${params.toString()}`;
+      const analysisUrl = `${API_BASE_URL}/api/analysis?${params.toString()}`;
 
-  useEffect(() => {
-    if (fullHistory.length > 0 && !isLoading) {
-        const historyToProcess = filteredHistory;
-        
-        const totalDocuments = historyToProcess.length;
-        const totalIssues = historyToProcess.reduce(
-            (acc, doc) => acc + doc.failedCount,
-            0
-        );
-        const totalCompliance = historyToProcess.reduce(
-            (acc, doc) => acc + doc.compliance,
-            0
-        );
-        
-        const avgCompliance =
-            totalDocuments > 0 ? Math.round(totalCompliance / totalDocuments) : 0;
-        const avgIssues = totalDocuments > 0 ? parseFloat((totalIssues / totalDocuments).toFixed(1)) : 0;
+      console.log("DEBUG: Attempting to fetch stats from:", statsUrl);
+      console.log("DEBUG: Attempting to fetch analysis data from:", analysisUrl);
 
-        setStats({
-            totalDocuments,
-            avgCompliance,
-            avgIssues,
-            totalIssues,
-        });
-    } else if (!isLoading) {
-        // Reset stats if there's no data for the filter
+      try {
+        const [statsResponse, analysisResponse] = await Promise.all([
+          fetch(statsUrl),
+          fetch(analysisUrl)
+        ]);
+
+        if (!statsResponse.ok || !analysisResponse.ok) {
+            throw new Error(`Network response was not ok. Stats: ${statsResponse.status}, Analysis: ${analysisResponse.status}`);
+        }
+
+        const statsData = await statsResponse.json();
+        const analysisData = await analysisResponse.json();
+
+        // FIX: Transform the incoming data to match the frontend type definition.
+        // The API sends 'file_id', but the 'AnalysisResult' type expects 'id'.
+        // We map the data to create the 'id' property from 'file_id'.
+        const transformedData = (analysisData.data || []).map((d: any) => ({
+          ...d,
+          id: d.file_id 
+        }));
+
+        setStats(statsData);
+        setHistory(transformedData);
+        setPagination(analysisData.pagination || { currentPage: 1, totalPages: 1, totalDocuments: 0 });
+
+      } catch (error) {
+        console.error('FETCH FAILED: This is likely a CORS or network issue. Check that the backend URL is correct (https://) and the server is running.');
+        console.error('Detailed error:', error);
         setStats({ totalDocuments: 0, avgCompliance: 0, avgIssues: 0, totalIssues: 0 });
-    }
-  }, [filteredHistory, fullHistory, isLoading]);
+        setHistory([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
+    fetchData();
+  }, [selectedYear, selectedQuarter, selectedMonth, selectedWeek, currentPage]); // Re-run when filters or page change
+
+
+  const filterOptions = useMemo(() => {
+    const years = [2025, 2024, 2023];
+    const quarters = [1, 2, 3, 4];
+    const months = Array.from({length: 12}, (_, i) => i);
+    return { years, quarters, months };
+  }, []);
+
+  const resetAndSetPage = (setter: React.Dispatch<React.SetStateAction<string>>) => (value: string) => {
+    setter(value);
+    setCurrentPage(1); // Reset to page 1 when a filter changes
+  };
 
   const handleYearChange = (year: string) => {
     setSelectedYear(year);
     setSelectedQuarter('all');
     setSelectedMonth('all');
     setSelectedWeek('all');
-  }
+    setCurrentPage(1);
+  };
 
   const handleQuarterChange = (quarter: string) => {
     setSelectedQuarter(quarter);
     setSelectedMonth('all');
     setSelectedWeek('all');
-  }
+    setCurrentPage(1);
+  };
 
   const handleMonthChange = (month: string) => {
     setSelectedMonth(month);
     setSelectedWeek('all');
-  }
-
-  const getWeekLabel = (weekNum: number) => {
-    const year = selectedYear !== 'all' ? parseInt(selectedYear, 10) : new Date().getFullYear();
-    const firstDayOfYear = new Date(year, 0, 4); 
-    const dateInWeek = new Date(firstDayOfYear.getTime() + (weekNum - 1) * 7 * 24 * 60 * 60 * 1000);
-    
-    while(getWeek(dateInWeek, {weekStartsOn: 1}) < weekNum) {
-        dateInWeek.setDate(dateInWeek.getDate() + 1);
-    }
-    while(getWeek(dateInWeek, {weekStartsOn: 1}) > weekNum) {
-        dateInWeek.setDate(dateInWeek.getDate() - 1);
-    }
-
-    const firstDay = startOfWeek(dateInWeek, { weekStartsOn: 1 });
-    const lastDay = endOfWeek(dateInWeek, { weekStartsOn: 1 });
-    return `Week ${weekNum}: ${format(firstDay, 'MMM d')} - ${format(lastDay, 'MMM d, yyyy')}`;
-  }
+    setCurrentPage(1);
+  };
   
-  const recentDocs = filteredHistory.slice(0, 5);
-
   return (
     <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
       <div className="flex items-center justify-between space-y-2">
@@ -202,21 +169,21 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Documents"
-          value={isLoading ? '...' : stats.totalDocuments.toString()}
+          value={isLoading ? '...' : String(stats.totalDocuments)}
           icon={FileText}
           borderColor="border-blue-500"
           iconColor="text-blue-500"
         />
         <StatCard
           title="Avg. Compliance"
-          value={isLoading ? '...' : `${stats.avgCompliance}%`}
-          icon={TrendingUp}
+          value={isLoading ? '...' : `${Math.round(stats.avgCompliance)}%`}
+          icon={LayoutDashboard}
           borderColor="border-green-500"
           iconColor="text-green-500"
         />
         <StatCard
           title="Avg. Issues / Doc"
-          value={isLoading ? '...' : stats.avgIssues.toString()}
+          value={isLoading ? '...' : stats.avgIssues.toFixed(1)}
           icon={ListChecks}
           borderColor="border-purple-500"
           iconColor="text-purple-500"
@@ -255,7 +222,7 @@ export default function DashboardPage() {
                 </SelectContent>
             </Select>
             
-            <Select onValueChange={handleMonthChange} value={selectedMonth} disabled={selectedQuarter === 'all'}>
+            <Select onValueChange={handleMonthChange} value={selectedMonth} disabled={selectedQuarter === 'all' || selectedYear === 'all'}>
                 <SelectTrigger>
                     <SelectValue placeholder="Month" />
                 </SelectTrigger>
@@ -265,31 +232,54 @@ export default function DashboardPage() {
                 </SelectContent>
             </Select>
 
-            <Select onValueChange={setSelectedWeek} value={selectedWeek} disabled={selectedMonth === 'all'}>
+            <Select value='all' disabled>
                 <SelectTrigger>
                     <SelectValue placeholder="Week" />
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="all">All Weeks</SelectItem>
-                    {filterOptions.weeks.map(w => <SelectItem key={w} value={String(w)}>{getWeekLabel(w)}</SelectItem>)}
                 </SelectContent>
             </Select>
         </CardContent>
       </Card>
       
-      <TrendAnalysis history={filteredHistory} isLoading={isLoading} />
-      <RcaAnalysis history={filteredHistory} isLoading={isLoading} />
+      <TrendAnalysis history={history} isLoading={isLoading} />
+      <RcaAnalysis history={history} isLoading={isLoading} />
       
       <Card>
-        <CardHeader>
-          <CardTitle>Recent Documents</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Analysis History</CardTitle>
+           {/* --- PAGINATION CONTROLS --- */}
+           <div className="flex items-center space-x-2">
+                <span className="text-sm text-muted-foreground">
+                    Page {pagination.currentPage} of {pagination.totalPages}
+                </span>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => p - 1)}
+                    disabled={pagination.currentPage <= 1 || isLoading}
+                >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => p + 1)}
+                    disabled={pagination.currentPage >= pagination.totalPages || isLoading}
+                >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                </Button>
+            </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {isLoading ? (
-              <p className="text-muted-foreground">Loading history...</p>
-            ) : recentDocs.length > 0 ? (
-              recentDocs.map((doc: AnalysisResult) => (
+              <p className="text-muted-foreground text-center">Loading history...</p>
+            ) : history.length > 0 ? (
+              history.map((doc: AnalysisResult) => (
                 <button
                   key={doc.id}
                   onClick={() => setSelectedAnalysis(doc)}
@@ -315,12 +305,12 @@ export default function DashboardPage() {
                           : 'bg-red-100 text-red-800'
                     )}
                   >
-                    {doc.compliance}% Compliant
+                    {Math.round(doc.compliance)}% Compliant
                   </Badge>
                 </button>
               ))
             ) : (
-              <p className="text-center text-muted-foreground">
+              <p className="text-center text-muted-foreground py-8">
                 No analyses found for the selected filter.
               </p>
             )}
@@ -333,9 +323,11 @@ export default function DashboardPage() {
         isOpen={!!selectedAnalysis}
         onClose={() => setSelectedAnalysis(null)}
       />
+      
     </div>
   );
 }
+
 
 interface AnalysisResultDialogProps {
     analysis: AnalysisResult | null;
@@ -396,3 +388,4 @@ function AnalysisResultDialog({ analysis, isOpen, onClose }: AnalysisResultDialo
         </Dialog>
     )
 }
+
