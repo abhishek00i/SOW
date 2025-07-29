@@ -30,7 +30,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { RcaAnalysis } from '@/components/RcaAnalysis';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getYear, getQuarter, getMonth } from 'date-fns';
+import { getYear, getQuarter, getMonth, getWeek, startOfWeek, endOfWeek, format, lastDayOfMonth } from 'date-fns';
 import { TrendAnalysis } from '@/components/TrendAnalysis';
 
 
@@ -66,9 +66,11 @@ export default function Dashboard() {
       const params = new URLSearchParams();
       if (selectedYear !== 'all') params.append('year', selectedYear);
       if (selectedQuarter !== 'all') params.append('quarter', selectedQuarter);
-      if (selectedMonth !== 'all') params.append('month', selectedMonth);
+      if (selectedMonth !== 'all') {
+        const monthForApi = parseInt(selectedMonth, 10) + 1;
+        params.append('month', String(monthForApi));
+      }
       if (selectedWeek !== 'all') params.append('week', selectedWeek);
-      // Add the current page to the request
       params.append('page', String(currentPage));
 
       const statsUrl = `${API_BASE_URL}/api/stats?${params.toString()}`;
@@ -90,9 +92,6 @@ export default function Dashboard() {
         const statsData = await statsResponse.json();
         const analysisData = await analysisResponse.json();
 
-        // FIX: Transform the incoming data to match the frontend type definition.
-        // The API sends 'file_id', but the 'AnalysisResult' type expects 'id'.
-        // We map the data to create the 'id' property from 'file_id'.
         const transformedData = (analysisData.data || []).map((d: any) => ({
           ...d,
           id: d.file_id 
@@ -101,7 +100,7 @@ export default function Dashboard() {
         setStats(statsData);
         setHistory(transformedData);
         setPagination(analysisData.pagination || { currentPage: 1, totalPages: 1, totalDocuments: 0 });
-
+        
       } catch (error) {
         console.error('FETCH FAILED: This is likely a CORS or network issue. Check that the backend URL is correct (https://) and the server is running.');
         console.error('Detailed error:', error);
@@ -113,20 +112,75 @@ export default function Dashboard() {
     };
 
     fetchData();
-  }, [selectedYear, selectedQuarter, selectedMonth, selectedWeek, currentPage]); // Re-run when filters or page change
+  }, [selectedYear, selectedQuarter, selectedMonth, selectedWeek, currentPage]);
 
 
   const filterOptions = useMemo(() => {
-    const years = [2025, 2024, 2023];
-    const quarters = [1, 2, 3, 4];
-    const months = Array.from({length: 12}, (_, i) => i);
-    return { years, quarters, months };
-  }, []);
+    // Set the current date context for filtering logic
+    const now = new Date('2025-07-29T16:35:00');
+    const currentYearVal = getYear(now);
+    const currentQuarterVal = getQuarter(now);
+    const currentMonthVal = getMonth(now); // 0-indexed (July is 6)
+    const currentDateVal = now.getDate();
 
-  const resetAndSetPage = (setter: React.Dispatch<React.SetStateAction<string>>) => (value: string) => {
-    setter(value);
-    setCurrentPage(1); // Reset to page 1 when a filter changes
-  };
+    // --- Years ---
+    const years = [2025, 2024, 2023];
+
+    // --- Quarters ---
+    const selectedYearVal = parseInt(selectedYear, 10);
+    let quarters: number[] = [1, 2, 3, 4];
+    if (selectedYearVal === currentYearVal) {
+        quarters = Array.from({ length: currentQuarterVal }, (_, i) => i + 1);
+    }
+
+    // --- Months ---
+    let months: number[] = [];
+    const selectedQuarterVal = parseInt(selectedQuarter, 10);
+    if (!isNaN(selectedQuarterVal)) {
+        const startMonth = (selectedQuarterVal - 1) * 3;
+        const endMonth = startMonth + 2;
+        const allMonthsInQuarter = [startMonth, startMonth + 1, startMonth + 2];
+
+        if (selectedYearVal === currentYearVal && selectedQuarterVal === currentQuarterVal) {
+            months = allMonthsInQuarter.filter(m => m <= currentMonthVal);
+        } else {
+            months = allMonthsInQuarter;
+        }
+    }
+
+    // --- Weeks ---
+    let weeks: { label: string; value: string; }[] = [];
+    const selectedMonthVal = parseInt(selectedMonth, 10);
+    if (!isNaN(selectedMonthVal)) {
+        const yearForWeeks = selectedYearVal;
+        const monthForWeeks = selectedMonthVal;
+
+        const firstDay = new Date(yearForWeeks, monthForWeeks, 1);
+        const lastDay = lastDayOfMonth(firstDay);
+        
+        const weekSet = new Set<string>();
+        let dayIterator = firstDay;
+
+        while(dayIterator <= lastDay) {
+            if (selectedYearVal === currentYearVal && monthForWeeks === currentMonthVal && dayIterator.getDate() > currentDateVal) {
+                break;
+            }
+            
+            const weekNum = getWeek(dayIterator, { weekStartsOn: 1 });
+            const start = startOfWeek(dayIterator, { weekStartsOn: 1 });
+            const end = endOfWeek(dayIterator, { weekStartsOn: 1 });
+            
+            const label = `Week ${weekNum}: ${format(start, 'MMM d')} - ${format(end, 'MMM d')}`;
+            weekSet.add(JSON.stringify({ label, value: String(weekNum) }));
+
+            dayIterator.setDate(dayIterator.getDate() + 7);
+        }
+        weeks = Array.from(weekSet).map(str => JSON.parse(str));
+    }
+
+    return { years, quarters, months, weeks };
+  }, [selectedYear, selectedQuarter, selectedMonth]);
+
 
   const handleYearChange = (year: string) => {
     setSelectedYear(year);
@@ -146,6 +200,11 @@ export default function Dashboard() {
   const handleMonthChange = (month: string) => {
     setSelectedMonth(month);
     setSelectedWeek('all');
+    setCurrentPage(1);
+  };
+
+  const handleWeekChange = (week: string) => {
+    setSelectedWeek(week);
     setCurrentPage(1);
   };
   
@@ -232,12 +291,13 @@ export default function Dashboard() {
                 </SelectContent>
             </Select>
 
-            <Select value='all' disabled>
+            <Select onValueChange={handleWeekChange} value={selectedWeek} disabled={selectedMonth === 'all'}>
                 <SelectTrigger>
                     <SelectValue placeholder="Week" />
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="all">All Weeks</SelectItem>
+                    {filterOptions.weeks.map(w => <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>)}
                 </SelectContent>
             </Select>
         </CardContent>
@@ -249,7 +309,6 @@ export default function Dashboard() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Analysis History</CardTitle>
-           {/* --- PAGINATION CONTROLS --- */}
            <div className="flex items-center space-x-2">
                 <span className="text-sm text-muted-foreground">
                     Page {pagination.currentPage} of {pagination.totalPages}
@@ -388,4 +447,3 @@ function AnalysisResultDialog({ analysis, isOpen, onClose }: AnalysisResultDialo
         </Dialog>
     )
 }
-
