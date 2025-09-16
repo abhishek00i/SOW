@@ -3,6 +3,7 @@ import { type SowCheck } from './sow-data';
 const LOCAL_STORAGE_KEY = 'sowise_default_checks';
 
 const initialChecks: SowCheck[] = [
+  // Original check for duplicate headings - covers a specific type of duplication.
   {
     id: 'check1',
     title: 'Duplicate Headings Check',
@@ -38,10 +39,10 @@ const initialChecks: SowCheck[] = [
       * **No Duplicates:** If no duplicate headings are found in your identified list, state clearly: "All identified headings are unique."
 `
   },
+  // Original check for title format.
   {
     id: 'check2',
     title: 'Title Format Check',
-    //prompt: 'When processing the provided DOCX file, identify the main title of the document, defined as the text that appears in the document metadata (e.g., title property) or the first text styled as a title (e.g., with the largest font size, such as 16pt or greater, or explicitly marked as a heading style like H1 or Title in the document formatting). Check if the identified main title exactly follows the format "SOW [Customer] - [Project]" (case-sensitive), where "[Customer]" is any sequence of words representing the customer name and "[Project]" is any sequence of words representing the project name, with a hyphen and spaces as shown. Exclude any text that resembles the format but is not the main title (e.g., text within paragraphs, tables, headers, footers, or non-title sections). Return a clear statement confirming whether the main title matches the exact format "SOW [Customer] - [Project]". If correct, respond: Yes, the title format is correct. If incorrect,respond: No, the title format is incorrect.',
     prompt:`You are an expert document structure analyst. Your task is to identify the main title of the document and verify its format, checking both the provided filename and the document's content.
       **Step 1: Identify the Main Document Title (Prioritize Filename)**
       **A. Check the provided Filename first:**
@@ -59,7 +60,7 @@ const initialChecks: SowCheck[] = [
     
       **Step 2: Check the Identified Main Title Format**
       Once you have identified what you infer to be the main document title (either from the filename or the document content), check if it **exactly** follows the format:
-      *SOW[Customer] - [Project]*
+      *"SOW [Customer] - [Project]"*
 
       Where:
       * "SOW" is the literal string "SOW" (case-sensitive).
@@ -74,10 +75,10 @@ const initialChecks: SowCheck[] = [
       * If the identified main title does NOT strictly match this format (even if it's close or has minor variations), respond with: "No, the title format is incorrect."
 `,
   },
+  // Original language check.
   {
     id: 'check3',
     title: 'Language Check (English Only)',
-    //prompt: 'When processing the provided DOCX file, analyze the entire document to detect any non-English words or sentences, including individual words, phrases, or full sentences that are not in English. Use language detection techniques to identify non-English text, considering characters, words, or sentences that do not conform to English language patterns (e.g., non-Latin scripts, diacritics specific to other languages, or words not found in an English dictionary). If any non-English text is found, respond "No," with all identified non-English snippets, clearly listing each snippet. If the document contains only English text, respond "Yes".',
     prompt :`You are a highly skilled language detection AI. Your task is to meticulously analyze the entire provided document content to determine if it contains *any* non-English words, phrases, or sentences.
       **Instructions for Language Detection:**
       1.  **Comprehensive Scan:** Go through the entire document content from start to finish.
@@ -95,10 +96,10 @@ const initialChecks: SowCheck[] = [
       * If the document appears to contain **only English text** (and acceptable loanwords/proper nouns in English context), respond with: "Yes"
 `,
   },
+  // Original Role Breakdown check.
   {
     id: 'check4',
     title: 'Role Breakdown Table Check',
-    //prompt: 'When processing the provided DOCX file, check for the presence of a section or table explicitly labeled or styled as "Role Breakdown" (e.g., identified by headings, with role or role description ). Exclude any text within tables or other sections that may resemble but are not explicitly the "Role Breakdown" heading or table. State whether the "Role Breakdown" section or table is found. If found, confirm its presence; if not, state that no "Role Breakdown" section or table exists.',
     prompt:`You are an expert document structure analyst. Your task is to accurately determine the presence of a "Role Breakdown" section or table within the provided document content.
       **Instructions for Identification:**
       1.  **Primary Identification (Heading/Label):** Search for a section or table that is explicitly introduced or clearly labeled as "Proposed Engagement Staffing or Role Breakdown". This might appear as:
@@ -118,10 +119,10 @@ const initialChecks: SowCheck[] = [
       * If, after a thorough analysis, no such explicitly labeled or clearly identifiable "Role Breakdown" section or table exists according to the criteria, respond with: "No, no 'Role Breakdown' section or table exists."
 `,
   },
+  // Original Fees Breakdown check.
   {
     id: 'check5',
     title: 'Fees Breakdown Table Validation',
-    // prompt: 'When processing the provided DOCX file, check for the presence of a section or table explicitly labeled or styled as "Fees Breakdown." Identify this by looking for a heading with the text "Fees" that is either styled as a heading (e.g., H1, H2, or equivalent document style) or has a larger font size (e.g., 14pt or greater, compared to body text typically at 11pt or 12pt), or a table with a caption or first cell containing the text "Fees Breakdown." Exclude any text within tables or other sections that resembles but does not exactly match "Fees Breakdown" or is not styled as a heading or table caption. Return a clear statement indicating whether the "Fees Breakdown" section or table is found. If found, check 2 conditions ("1: Is it organized by milestones, not deliverables?", "2: Do milestone totals match the overall fees?") if these two conditions are met, respond "Yes, all Fees Breakdown requirements are met.", if any condition failed respond "No, and include specific reasons (e.g., “Condition 1 failed – fees are based on deliverables”)" . If not found, state "No Fees Breakdown section or table exists in the document.',
     prompt: `You are an expert document structure analyst. Your task is to locate and validate a "Fees Breakdown" section or table within the provided document content.
       **Step 1: Identify the "Fees Breakdown" Section or Table**
       Search for a section or table that is explicitly labeled or clearly identifiable as "Fees Breakdown". Look for the following textual cues:
@@ -157,10 +158,10 @@ const initialChecks: SowCheck[] = [
               "No, Condition 1 failed – fees are based on deliverables, not milestones. Condition 2 failed – milestone totals do not clearly match the overall fees."
 `,
   },
+  // Original check for customer name usage in a FINALIZED document.
   {
     id: 'check6',
     title: 'Customer Name Usage Check',
-    //prompt: 'When processing the provided DOCX file, identify the customer name by extracting the exact text between "SOW" and "-" in the document title (e.g., in "SOW CustomerName - Project", extract "CustomerName"). Ensure the title is identified based on the document metadata or the first heading with the largest font size (e.g., 16pt or greater) or styled as the document title. Then, search the entire document for the exact customer name (case-sensitive) as extracted from the title, counting every occurrence of this name in the text, excluding any partial matches, similar names, or text within tables, headers, footers, or metadata unless it explicitly matches the extracted name. The count of the customer name should be exactly 2 (once in the title and once in the customer table/field). Return a clear statement specifying: the extracted customer name, the exact number of times it appears in the document, and whether the count is correct (i.e., exactly 2). If the count is more than 2 respond the number of occurances and if less than 2 state Where it is missing (e.g., "Missing in title" or "Missing in customer table")',
     prompt:`You are an expert document structure analyst. Your primary task is to identify and then accurately count the occurrences of the customer name within the provided document content.
       **Step 1: Identify the Customer Name**
       First, locate the most prominent, top-level text that appears at the very beginning of the document's content. This is typically a single line or short phrase that introduces the entire document. Look for:
@@ -174,7 +175,7 @@ const initialChecks: SowCheck[] = [
     
       **Check the Identified Main Title Format**
       Once you have identified what you infer to be the main document title (either from the filename or the document content), check if it **exactly** follows the format:
-      *SOW[Customer] - [Project]*
+      *"SOW [Customer] - [Project]"*
 
       Where:
       * "SOW" is the literal string "SOW" (case-sensitive).
@@ -200,10 +201,10 @@ const initialChecks: SowCheck[] = [
         * If "Total Occurrences Found" is **more than 2**, state: "The count is incorrect. Total occurrences: [The actual count]."
         * If "Total Occurrences Found" is **less than 2** (0 or 1), state: "The count is incorrect. It is missing from expected locations (e.g., 'Missing in title' or 'Missing in customer table/field')."`
   },
+  // Original check for spelling and grammar.
   {
     id: 'check7',
     title: 'Spelling, Grammar, & Formatting',
-    // prompt: 'Scan the provided DOCX file for spelling and grammar errors using standard English rules. Summarize the findings, stating whether errors were found. If errors exist, list the examples. If no errors are found, confirm Yes, no errors found in the document.',
     prompt: `You are a professional proofreader. Your task is to meticulously scan the entire provided document content for any spelling and grammar errors, adhering strictly to standard English language rules.
       **Instructions for Analysis:**
       1.  **Comprehensive Review:** Examine all text for grammatical correctness (e.g., subject-verb agreement, tense consistency, punctuation, sentence structure) and spelling accuracy.
@@ -224,52 +225,37 @@ const initialChecks: SowCheck[] = [
           * Respond with: "Yes, no errors found in the document."
 `,
   },
+  // UPDATED check for dates, now explicitly checks for backdating.
   {
     id: 'check8',
     title: 'SOW Start/End Date Check',
-    // prompt: 'When processing the provided DOCX file, check for the presence of "Start Date" and "End Date" explicitly labeled as such in the document text (e.g., in a section, paragraph, or table cell with the phrases "Start Date" and "End Date"). Verify that the "Start Date" includes the phrases something like "Within 10 business days of signed and executed contract" as part of its description or value. Ensure both dates are correctly formatted, with "Start Date" containing the specified phrase and "End Date" presented as a valid date according to start date with addition of phrase data time (e.g., MM/DD/YYYY, DD/MM/YYYY, or written format like "January 1, 2025". etc). Exclude any text that resembles but does not exactly match these phrases or formatting requirements. if both start date a end date is valid response "Yes, both Start Date and End Date are correctly formatted", if either one of dates not found respond "No, the following date(s) are incorrect: and specify what went wrong", if no dates are respond No SOW dates found in the document.',
     prompt: `You are a document auditor. Your task is to locate and validate the "Start Date" and "End Date" within the provided document content, ensuring specific format and content requirements are met.
       **Step 1: Locate "Start Date" and "End Date"**
-      Scan the entire document content to find text explicitly labeled as "Start Date" and "End Date". These labels might appear:
-      * As a heading for a section.
-      * In a paragraph (e.g., "The Start Date is...").
-      * In a table cell alongside the corresponding date value.
+      Scan the entire document content to find text explicitly labeled as "Start Date" and "End Date".
 
       **Step 2: Validate "Start Date" Requirements**
-      Once a "Start Date" is identified, check its associated value or description for the **phrases** like:
-      e.g. - "Within 10 business days of signed and executed contract"
-      The "Start Date" must contain phrases like above example as its primary description or value.
+      Once a "Start Date" is identified, check its associated value or description for the following:
+      1. It must contain a phrase like "Within 10 business days of signed and executed contract".
+      2. It must not be a specific, backdated date (a date in the past). The value should be forward-looking.
 
       **Step 3: Validate "End Date" Requirements**
       Once an "End Date" is identified, check its value:
-      * It must be presented in a valid, recognizable date format (e.g., MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD, or a written format like "January 1, 2025").
-      * It should appear to be a logical future date relative to the context implied by the "Start Date" phrase (i.e., it should logically occur after the contract signing and start of work). The LLM will perform a general logical consistency check, not precise date arithmetic.
-
-      **CRITICAL EXCLUSIONS:**
-      * Ignore any text that merely contains "start" or "end" or "date" but is not explicitly labeled as "Start Date" or "End Date" for the SOW.
-      * Exclude dates or phrases that appear in general text and are not clearly associated with the official "Start Date" or "End Date" for the Statement of Work.
+      * It must be presented in a valid, recognizable date format (e.g., MM/DD/YYYY, YYYY-MM-DD, or "January 1, 2025").
+      * It must be a logical future date that occurs after the implied Start Date.
 
       **Output Format:**
-
-      * If **BOTH** "Start Date" and "End Date" are found, and **BOTH** meet all their respective validation requirements (Start Date contains the exact phrase, End Date is a valid and logically consistent date format):
+      * If **BOTH** "Start Date" and "End Date" are found and **BOTH** meet all their respective validation requirements:
           Respond with: "Yes, both Start Date and End Date are correctly formatted."
-
-      * If **either** "Start Date" or "End Date" is found but **fails** its validation requirements, OR if only one of the dates is found and valid while the other is missing/invalid:
-          Respond with: "No, the following date(s) are incorrect:" followed by a specific, clear explanation of what went wrong for each date.
-          Example explanations:
-          - "Start Date found, but does not contain 'phrases'"
-          - "End Date found, but is not a valid date format."
-          - "Start Date found and valid, but End Date is missing."
-          - "End Date found and valid, but Start Date is missing or invalid."
-
-      * If **NEITHER** "Start Date" nor "End Date" are found in the document:
+      * If **either** date fails validation, or if one is missing:
+          Respond with: "No, the following date(s) are incorrect:" followed by a specific explanation of the failure (e.g., "Start Date is backdated", "End Date is missing", "Start Date does not contain the required execution phrase").
+      * If **NEITHER** "Start Date" nor "End Date" are found:
           Respond with: "No SOW dates found in the document."
 `,
   },
+  // Original bullet point check.
   {
     id: 'check9',
     title: 'Bullet Points Quality Check',
-    // prompt: 'When processing the provided DOCX file, identify only bullet points in unordered or ordered lists (e.g., marked with bullets, numbers, or list indicators, as styled in the document), starting at the beginning of a new line with no text before the bullet indicator. Exclude text resembling bullet points in paragraphs, tables, or any other sections, or any bullet-like text with preceding words on the same line. For each bullet point, check if the first word is an action (base form, past tense, or present participle, e.g., "Develop", "Developed", "Developing" and some action verbs/words) per standard English grammar, excluding non-action verbs (e.g., "Is", "Are", "Was", "Be"), linking verbs, or non-verbs. Ignore case sensitivity. If all bullet points start with an action verb, state: "Yes, all bullet points use action verbs and are formatted correctly.", If any do not, respond "No, and list each non-compliant bullet point exactly as it appears."'
     prompt:`You are an expert document structure analyst. Your primary task is to identify *only* genuine bullet points in the provided document content and then validate their starting word.
       **Step 1: STRICT Identification of Bullet Points**
       Carefully scan the entire document content to identify text that *unambiguously* represents a bullet point in an unordered or ordered list. Apply these **strict criteria**:
@@ -304,6 +290,115 @@ const initialChecks: SowCheck[] = [
       * If **ANY** identified bullet point does NOT begin with a valid action verb:
           Respond with: "No," followed by a list of *each non-compliant bullet point*, presented exactly as it appears in the document content.
 `
+  },
+  // NEW check for placeholder/instructional text.
+  {
+    id: 'check10',
+    title: 'Instructional Text Removal Check',
+    prompt: `You are a document finalization expert. Your task is to scan the provided document content for any remaining placeholder or instructional text that should have been removed before finalization.
+    
+    Search for common instructional phrases, often found in templates, such as:
+    - "[Insert..."
+    - "TBD"
+    - "To be determined"
+    - "Note to author"
+    - "additional grey text is included"
+    - Any text enclosed in square brackets '[]' that appears to be an instruction.
+
+    **Output Format:**
+    - If you find any such instructional text, respond with: "No, instructional text found." and list the snippets you identified.
+    - If no instructional text is found, respond with: "Yes, all instructional text appears to be removed."
+    `
+  },
+  // NEW check to ensure deliverables do not have specific dates.
+  {
+    id: 'check11',
+    title: 'Deliverable Date Check',
+    prompt: `You are a contract analyst. Your task is to verify that individual deliverables listed in the document do NOT have specific delivery dates assigned to them. The SOW should only contain an overall project Start and End Date.
+
+    **Step 1: Identify Deliverables**
+    Locate any section, table, or list that itemizes project "Deliverables".
+    
+    **Step 2: Check for Associated Dates**
+    For each identified deliverable, check the surrounding text for any specific dates or deadlines (e.g., "due on MM/DD/YYYY", "by January 1st", "within 3 weeks of kickoff").
+    
+    **Output Format:**
+    - If any deliverable is found to have a specific date associated with it, respond with: "No, specific delivery dates were found on deliverables." and list the deliverable(s) with the associated date.
+    - If no specific dates are found tied to individual deliverables, respond with: "Yes, deliverables do not have specific delivery dates."`
+  },
+  // NEW check for formatting polish. Acknowledges limitations of text-only analysis.
+  {
+    id: 'check12',
+    title: 'Formatting Polish Check',
+    prompt: `You are a document formatting analyst. Your task is to check for general formatting consistency. Note: You cannot verify font family or size from raw text, so focus only on structural and emphasis patterns.
+    
+    **Analysis Points:**
+    1.  **Consistent Use of Bold Text:** Is bold text used purposefully for headings and key terms, or does it appear randomly within paragraphs without clear reason?
+    2.  **Consistent Bullet Point Structure:** Do all bulleted lists in the document appear to use a consistent style (e.g., all hyphens, or all proper bullet symbols)?
+
+    **Output Format:**
+    - If you find significant inconsistencies in the use of bolding or bullet styles, respond with: "No, formatting inconsistencies were found." and provide a brief description of the issues.
+    - If the formatting appears generally consistent, respond with: "Yes, formatting appears polished and consistent."`
+  },
+  // NEW check for date cross-referencing.
+  {
+    id: 'check13',
+    title: 'Date Cross-Reference Check (Section 2)',
+    prompt: `You are a document auditor. Your task is to perform a cross-reference check between the main SOW dates and the timeframe described in "Section 2".
+
+    **Step 1:** Locate the primary "Start Date" and "End Date" of the SOW.
+    **Step 2:** Locate a section explicitly labeled "Section 2", "Project Timeframe", or similar.
+    **Step 3:** Analyze the content of that section to understand the timeframe it describes (e.g., "a 3-month engagement", "work to be completed by Q4").
+    **Step 4:** Compare the timeframe from Step 3 with the dates from Step 1 for logical consistency.
+
+    **Output Format:**
+    - If the dates are consistent, respond with: "Yes, SOW dates match the Section 2 timeframe."
+    - If there is a mismatch or if Section 2 cannot be found, respond with: "No, SOW dates do not match the Section 2 timeframe." and explain the discrepancy (e.g., "SOW End Date is in June, but Section 2 describes a 6-month project starting in January.").
+    - If the relevant dates or sections cannot be found to perform the check, state that the check could not be completed.`
+  },
+  // NEW check for the "[DRAFT]" tag in the title.
+  {
+    id: 'check14',
+    title: 'Draft Status Check in Title',
+    prompt: `You are a document controller. Your task is to check if the main document title contains a draft watermark.
+
+    **Step 1:** Identify the main title from the filename or the first prominent line of text in the document content.
+    **Step 2:** Check if this identified title begins with the exact, case-sensitive string "[DRAFT]".
+
+    **Output Format:**
+    - If the title contains "[DRAFT]" at the beginning, respond with: "Yes, the title includes the [DRAFT] watermark."
+    - If the title does not contain the "[DRAFT]" watermark, respond with: "No, the title is missing the [DRAFT] watermark."`
+  },
+  // NEW check for using the generic "Customer" placeholder, for draft validation.
+  {
+    id: 'check15',
+    title: 'Generic Customer Name Check (For Drafts)',
+    prompt: `You are a template compliance checker. Your task is to verify that the document is in a draft state by checking if the generic placeholder "Customer" is used instead of a real customer's name.
+    
+    **Analysis Steps:**
+    1. Scan the main title and key sections (like introductions or tables) for the specific, case-sensitive word "Customer".
+    2. The purpose is to ensure a real customer name has *not* yet been entered.
+
+    **Output Format:**
+    - If the word "Customer" is consistently used as a placeholder, respond with: "Yes, the generic 'Customer' name is correctly used as a placeholder."
+    - If a specific company or individual's name is found where "Customer" should be (especially in the title), respond with: "No, a specific customer name is used instead of the generic 'Customer' placeholder." and mention the name you found.`
+  },
+  // NEW check for special handling language.
+  {
+    id: 'check16',
+    title: 'Special Handling Language Check',
+    prompt: `You are a compliance officer. Your task is to scan the document for any clauses or phrases that indicate special legal, privacy, or regulatory handling requirements.
+    
+    Look for keywords and phrases related to:
+    - Confidentiality (e.g., "Confidential Information", "NDA")
+    - Data Privacy (e.g., "GDPR", "CCPA", "PII", "Personally Identifiable Information")
+    - Healthcare (e.g., "HIPAA", "PHI", "Protected Health Information")
+    - Export Controls (e.g., "Export Administration Regulations", "EAR")
+    - Data Residency (e.g., "data must reside in", "data sovereignty")
+
+    **Output Format:**
+    - If you find any such language, respond with: "Yes, special handling language was found." and list the keywords or phrases you identified.
+    - If no such language is detected, respond with: "No, no special handling language was found."`
   },
 ];
 
